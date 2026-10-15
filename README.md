@@ -19,10 +19,10 @@ In practice the model reacts well to this. It switches to a narrower `edit`, or 
 ## Install
 
 ```sh
-dsh plugin --profile tui add dsh-block-placeholder-edits
+dsh plugin --profile web add dsh-block-placeholder-edits
 ```
 
-Swap `tui` for whichever profile you use. It turns on as soon as it's installed. Remove it with `dsh plugin --profile tui remove dsh-block-placeholder-edits`.
+That's the `web` profile, the browser UI you start with `dsh web`. If you run DSH another way, use `headless` (scripts and CI) or `acp` (editor integrations) instead. Each profile keeps its own plugin list, so add it to every profile you use. It turns on as soon as it's installed. Remove it with `dsh plugin --profile web remove dsh-block-placeholder-edits`.
 
 ### From a clone
 
@@ -33,7 +33,7 @@ git clone https://github.com/acus9345/dsh-block-placeholder-edits
 cd dsh-block-placeholder-edits
 npm install
 npm pack
-dsh plugin --profile tui add ./dsh-block-placeholder-edits-0.1.0.tgz
+dsh plugin --profile web add ./dsh-block-placeholder-edits-0.1.0.tgz
 ```
 
 ## What counts as a placeholder
