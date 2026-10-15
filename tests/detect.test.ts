@@ -82,3 +82,13 @@ test('whole-file shrink below the ratio is flagged; new files are not', () => {
 test('extra patterns extend detection', () => {
   assert.equal(detectElision('x\nSNIP\ny', '', false, { ...opts, extraPatterns: ['^SNIP$'] })?.kind, 'placeholder')
 })
+
+test('ordinary comments that mention "unchanged" or "the rest" are not placeholders', () => {
+  for (const line of ['// unchanged since v1 for compatibility', '// Keep the rest of the list sorted', '  // ...and then we retry', '// The rest of the request is validated by zod']) {
+    assert.equal(isPlaceholderLine(line, 'a.ts'), false, line)
+  }
+  assert.equal(isPlaceholderLine('    """..."""', 'a.py'), false)
+  for (const line of ['-- rest of the query unchanged', '/* rest of styles unchanged */', '// keep the rest as is', '// ... (unchanged)']) {
+    assert.equal(isPlaceholderLine(line, 'a.ts'), true, line)
+  }
+})

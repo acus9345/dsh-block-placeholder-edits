@@ -39,7 +39,7 @@ const COMMENT_END = /\s*(?:\*+\/\s*\}?|-->|"""|''')\s*$/
 
 const DOTS = /(?:\.\s*){3,}|…/
 const ELISION_WORDS = new RegExp([
-  String.raw`\brest of (?:the )?(?:code|file|implementation|function|class|component|module|methods?|logic|content|body|tests?|file contents?)\b`,
+  String.raw`\brest of (?:the )?(?:code|file|implementation|function|class|component|module|methods?|logic|content|body|tests?|file contents?|query|styles?|template|markup|config(?:uration)?)\b`,
   String.raw`\b(?:remains?|stays?|is|are|kept|left) (?:the same|unchanged|as[- ]is|as before)\b`,
   String.raw`\bunchanged\b`,
   String.raw`\b(?:existing|previous|original|prior|other|remaining|same) (?:code|implementation|logic|methods?|functions?|imports?|content|lines|props|properties|fields|routes|handlers|tests?|cases|styles|config(?:uration)?|exports|definitions?)\b`,
@@ -75,17 +75,20 @@ export function isPlaceholderLine(raw: string, path: string | undefined, extra: 
   if (comment === null) return false
   const body = line.slice(comment[0].length).replace(COMMENT_END, '').trim()
   if (body.length === 0) return false
-  if (/^\[?(?:\.\s*){3,}\]?$|^…$/.test(body)) return true
+  // A `"""..."""` docstring is a stub, not elided code.
+  if (/^\[?(?:\.\s*){3,}\]?$|^…$/.test(body)) return !/^(?:"""|''')/.test(comment[0])
   if (/^(?:TODO|FIXME|XXX|NOTE)\b/i.test(body) && !ELISION_WORDS.test(body)) return false
   const hasDots = DOTS.test(body)
   const hasWords = ELISION_WORDS.test(body)
   if (hasDots && hasWords) return true
   // Without an ellipsis, require the strong phrasings that only appear in placeholders.
-  if (hasWords && /\b(?:rest of|remains?|unchanged|omitted|for brevity|same as|keep (?:the )?(?:existing|original|rest)|(?:existing|previous|original|remaining) (?:code|implementation|logic|methods|functions|content))\b/i.test(body)) {
+  // `unchanged` and `keep the rest` also show up in real comments ("unchanged since v1", "keep the rest sorted"),
+  // so they only count at the end of the comment.
+  if (hasWords && /\b(?:rest of (?:the )?(?:code|file|implementation|function|class|component|module|methods?|logic|content|body|tests?|query|styles?|template|markup|config)|remains?|omitted|for brevity|same as|(?:existing|previous|original|remaining) (?:code|implementation|logic|methods|functions|content))\b|\bunchanged\W*$|\bkeep (?:the )?(?:existing|original|rest)(?: (?:code|implementation|as[- ]is|unchanged|the same))?\W*$/i.test(body)) {
     return body.split(/\s+/).length <= 12
   }
   // `// ... handlers ...` style: dots wrapping a short noun phrase.
-  if (/^(?:\.\s*){3,}[\w\s/()-]{1,40}(?:\.\s*){3,}$|^(?:\.\s*){3,}\s*\(?[\w\s-]{1,30}\)?$/.test(body)) return true
+  if (/^(?:\.\s*){3,}[\w\s/()-]{1,40}(?:\.\s*){3,}$|^(?:\.\s*){2,}\.\s+\(?[\w\s-]{1,30}\)?$/.test(body)) return true
   return false
 }
 
