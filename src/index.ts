@@ -15,7 +15,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 import type { PreToolDecision, ToolExecution } from '@deepseek-ai/dsh-tools'
 import { detectElision, type ElisionFinding } from './detect.ts'
-import { fileMutation, readExisting, resolvePath, workspaceOf } from './shared/files.ts'
+import { canonicalJson, fileMutation, readExisting, resolvePath, workspaceOf } from './shared/files.ts'
 import { matchesAny } from './shared/glob.ts'
 
 export { detectElision, findPlaceholders, isPlaceholderLine } from './detect.ts'
@@ -91,7 +91,7 @@ export function apply(ctx: Context, config: Config): void {
     if (mutation === undefined) return next()
     const { absolute, relative } = resolvePath(mutation.path, workspaceOf(exec))
     if (config.ignore.length > 0 && matchesAny(relative, config.ignore)) return next()
-    const key = createHash('sha256').update(`${exec.name}\0${absolute}\0${JSON.stringify(exec.arguments)}`).digest('hex')
+    const key = createHash('sha256').update(`${exec.name}\0${absolute}\0${canonicalJson(exec.arguments)}`).digest('hex')
     if (config.allowIdenticalRetry && pending.delete(key)) return next()
     const wholeFile = mutation.kind === 'write'
     const previous = wholeFile ? await readExisting(absolute, config.maxFileBytes) : mutation.oldText
