@@ -24,6 +24,18 @@ dsh plugin --profile tui add dsh-block-placeholder-edits
 
 Swap `tui` for whichever profile you use. It turns on as soon as it's installed. Remove it with `dsh plugin --profile tui remove dsh-block-placeholder-edits`.
 
+### From a clone
+
+Before the package is on npm, or to try local changes, build a tarball and install that:
+
+```sh
+git clone https://github.com/acus9345/dsh-block-placeholder-edits
+cd dsh-block-placeholder-edits
+npm install
+npm pack
+dsh plugin --profile tui add ./dsh-block-placeholder-edits-0.1.0.tgz
+```
+
 ## What counts as a placeholder
 
 These are comments, in any common comment style (`//`, `#`, `/* */`, `<!-- -->`, `--`, `;`, JSX `{/* */}`), that talk about code instead of being code:
@@ -72,4 +84,4 @@ npm run test:e2e   # real dsh runs against a scripted local model, no API key ne
 
 The install test runs `dsh plugin add`, which needs `pnpm` on your PATH.
 
-MIT licensed.
+MIT licensed. Written by [acus9345](https://github.com/acus9345). Bug reports and ideas are welcome in the issues.
