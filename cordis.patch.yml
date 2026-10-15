@@ -1,0 +1,14 @@
+# dsh-block-placeholder-edits: block placeholder-comment edits and large silent deletions.
+# Override by restating this row's whole `config` in a later layer:
+#
+# - id: block-placeholder-edits
+#   config:
+#     mode: deny               # or ask
+#     shrinkRatio: 0.5         # 0 disables the large-deletion check
+#     minLinesForShrink: 40
+#     allowIdenticalRetry: true
+#     extraPatterns: []
+#     ignore: ['docs/**']
+- insert:
+    - id: block-placeholder-edits
+      name: dsh-block-placeholder-edits
