@@ -1,6 +1,6 @@
 # dsh-block-placeholder-edits
 
-English | [中文](README.zh.md)
+English | [中文](README_zh.md)
 
 Models have a habit that quietly wrecks files. They write `// ... existing code ...` in place of code they didn't feel like retyping, and the edit tool takes it literally. The file now holds a comment where forty lines of real code used to be. You only find out when the build breaks, or worse, when it doesn't.
 
