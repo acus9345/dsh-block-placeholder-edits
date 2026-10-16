@@ -1,6 +1,6 @@
 {
   "name": "dsh-block-placeholder-edits",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "DeepSeek Harness plugin that blocks file edits which replace real code with placeholder comments like '// ... existing code ...', and whole-file rewrites that silently drop most of a file.",
   "license": "MIT",
   "author": "acus9345",
@@ -20,7 +20,6 @@
     "client.js",
     "cordis.patch.yml",
     "README.md",
-    "README.zh.md",
     "LICENSE"
   ],
   "scripts": {
