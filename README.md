@@ -1,5 +1,7 @@
 # dsh-block-placeholder-edits
 
+English | [中文](README.zh.md)
+
 Models have a habit that quietly wrecks files. They write `// ... existing code ...` in place of code they didn't feel like retyping, and the edit tool takes it literally. The file now holds a comment where forty lines of real code used to be. You only find out when the build breaks, or worse, when it doesn't.
 
 This [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin checks every `write` and `edit` before it lands. If the new text uses a placeholder comment to stand in for code, or a whole-file write throws away most of a large file, the call is refused and the file is left alone. The model is told exactly which line was the problem:
@@ -26,14 +28,14 @@ That's the `web` profile, the browser UI you start with `dsh web`. If you run DS
 
 ### From a clone
 
-Before the package is on npm, or to try local changes, build a tarball and install that:
+To try local changes, build a tarball and install that:
 
 ```sh
 git clone https://github.com/acus9345/dsh-block-placeholder-edits
 cd dsh-block-placeholder-edits
 npm install
 npm pack
-dsh plugin --profile web add ./dsh-block-placeholder-edits-0.1.0.tgz
+dsh plugin --profile web add ./dsh-block-placeholder-edits-0.2.0.tgz
 ```
 
 ## What counts as a placeholder
