@@ -17,6 +17,7 @@ import type { PreToolDecision, ToolExecution } from '@deepseek-ai/dsh-tools'
 import { detectElision, type ElisionFinding } from './detect.ts'
 import { canonicalJson, fileMutation, readExisting, resolvePath, workspaceOf } from './shared/files.ts'
 import { matchesAny } from './shared/glob.ts'
+import { resolveConfig } from './shared/live.ts'
 
 export { detectElision, findPlaceholders, isPlaceholderLine } from './detect.ts'
 export type { ElisionFinding, ElisionHit, DetectOptions } from './detect.ts'
@@ -41,15 +42,17 @@ export interface Config {
   maxFileBytes: number
 }
 
+// Every field is `.volatile()` so the settings page on DSH's Plugins page can
+// change it live; `apply` reads the current values on each call.
 export const Config: Schema<Config> = Schema.object({
-  mode: Schema.union(['deny', 'ask']).default('deny'),
-  shrinkRatio: Schema.number().min(0).max(1).default(0.5),
-  minLinesForShrink: Schema.natural().default(40),
-  allowIdenticalRetry: Schema.boolean().default(true),
-  extraPatterns: Schema.array(Schema.string()).default([]),
-  ignore: Schema.array(Schema.string()).default([]),
-  maxFileBytes: Schema.natural().default(2_000_000),
-}) as Schema<Config>
+  mode: Schema.union(['deny', 'ask']).default('deny').volatile(),
+  shrinkRatio: Schema.number().min(0).max(1).default(0.5).volatile(),
+  minLinesForShrink: Schema.natural().default(40).volatile(),
+  allowIdenticalRetry: Schema.boolean().default(true).volatile(),
+  extraPatterns: Schema.array(Schema.string()).default([]).volatile(),
+  ignore: Schema.array(Schema.string()).default([]).volatile(),
+  maxFileBytes: Schema.natural().default(2_000_000).volatile(),
+}) as unknown as Schema<Config>
 
 /**
  * Render the model-facing reason for a blocked mutation.
@@ -70,15 +73,25 @@ export function denialText(path: string, finding: ElisionFinding, retryAllowed: 
     + `Fix: read the file and use \`edit\` for targeted changes, or write the complete file content.${retry}`
 }
 
-export function apply(ctx: Context, config: Config): void {
-  const extra = config.extraPatterns.map((p) => {
+/**
+ * Keep the extra placeholder patterns that are valid regexes. A pattern typed
+ * on the settings page that does not compile is skipped rather than taking
+ * the plugin down.
+ * @param patterns - regex sources.
+ * @returns the valid ones.
+ */
+export function validPatterns(patterns: readonly string[]): string[] {
+  return patterns.filter((p) => {
     try {
       new RegExp(p, 'i')
-      return p
-    } catch (error) {
-      throw new Error(`block-placeholder-edits: invalid extraPatterns entry ${JSON.stringify(p)}`, { cause: error })
+      return true
+    } catch {
+      return false
     }
   })
+}
+
+export function apply(ctx: Context, config: Config): void {
   /** Fingerprints of blocked calls awaiting an identical retry. Bounded FIFO. */
   const pending = new Set<string>()
   const remember = (key: string): void => {
@@ -87,26 +100,27 @@ export function apply(ctx: Context, config: Config): void {
   }
 
   ctx.on('tools/pre-execute', async (exec: ToolExecution, next: () => Promise<PreToolDecision>) => {
+    const cfg = resolveConfig(config)
     const mutation = fileMutation(exec)
     if (mutation === undefined) return next()
     const { absolute, relative } = resolvePath(mutation.path, workspaceOf(exec))
-    if (config.ignore.length > 0 && matchesAny(relative, config.ignore)) return next()
+    if (cfg.ignore.length > 0 && matchesAny(relative, cfg.ignore)) return next()
     const key = createHash('sha256').update(`${exec.name}\0${absolute}\0${canonicalJson(exec.arguments)}`).digest('hex')
-    if (config.allowIdenticalRetry && pending.delete(key)) return next()
+    if (cfg.allowIdenticalRetry && pending.delete(key)) return next()
     const wholeFile = mutation.kind === 'write'
-    const previous = wholeFile ? await readExisting(absolute, config.maxFileBytes) : mutation.oldText
+    const previous = wholeFile ? await readExisting(absolute, cfg.maxFileBytes) : mutation.oldText
     const finding = detectElision(mutation.newText, previous, wholeFile, {
-      shrinkRatio: config.shrinkRatio,
-      minLinesForShrink: config.minLinesForShrink,
-      extraPatterns: extra,
+      shrinkRatio: cfg.shrinkRatio,
+      minLinesForShrink: cfg.minLinesForShrink,
+      extraPatterns: validPatterns(cfg.extraPatterns),
       path: relative,
     })
     if (finding === undefined) return next()
-    const text = denialText(relative, finding, config.allowIdenticalRetry)
-    if (config.mode === 'ask') {
+    const text = denialText(relative, finding, cfg.allowIdenticalRetry)
+    if (cfg.mode === 'ask') {
       return { kind: 'ask', reason: text, displayReason: { en: `Edit to ${relative} looks incomplete (${finding.kind === 'placeholder' ? 'placeholder comments' : 'large deletion'}).` } }
     }
-    if (config.allowIdenticalRetry) remember(key)
+    if (cfg.allowIdenticalRetry) remember(key)
     return { kind: 'deny', reason: text }
   })
 }

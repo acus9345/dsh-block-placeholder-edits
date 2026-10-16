@@ -61,7 +61,9 @@ Sometimes deleting most of a file is the point. The model is told it can repeat 
 
 ## Settings
 
-Add a row like this to `~/.dsh/profiles/<profile>/cordis.patch.yml`, or to `~/.dsh/cordis.patch.yml` for all profiles. Keys you leave out keep their defaults.
+The easy way: open **Plugins** in DSH's sidebar, click **dsh-block-placeholder-edits**, change what you want and press **Save**. It applies to the next tool call, no restart needed.
+
+Or add a row like this to `~/.dsh/profiles/<profile>/cordis.patch.yml`, or to `~/.dsh/cordis.patch.yml` for all profiles. Keys you leave out keep their defaults.
 
 ```yaml
 - id: block-placeholder-edits
