@@ -83,12 +83,106 @@ test('extra patterns extend detection', () => {
   assert.equal(detectElision('x\nSNIP\ny', '', false, { ...opts, extraPatterns: ['^SNIP$'] })?.kind, 'placeholder')
 })
 
-test('ordinary comments that mention "unchanged" or "the rest" are not placeholders', () => {
-  for (const line of ['// unchanged since v1 for compatibility', '// Keep the rest of the list sorted', '  // ...and then we retry', '// The rest of the request is validated by zod']) {
+test('ordinary comments that mention "unchanged", "the rest", or "existing code" are not placeholders', () => {
+  for (const line of [
+    '// unchanged since v1 for compatibility',
+    '// Keep the rest of the list sorted',
+    '  // ...and then we retry',
+    '// The rest of the request is validated by zod',
+    '// Matches the existing code in the parser',
+    '// Compatible with existing implementation',
+    '// Unlike the original logic, this handles nulls',
+    '// The existing code remains fast',
+    '// Uses the remaining functions from utils.ts',
+    '// Insert existing record into the cache table',
+    '// This value is unchanged when retries are disabled',
+    '// Cached value stays the same',
+    '// Cached value stays the same until invalidated',
+    '// cache stays unchanged until the next refresh',
+    '// Cached value remains the same until invalidated',
+    '// payload is intact',
+    '// Original input is left untouched',
+    '// Keep existing code style consistent with the repo',
+    '// Leave existing code untouched when flag is false',
+  ]) {
     assert.equal(isPlaceholderLine(line, 'a.ts'), false, line)
   }
   assert.equal(isPlaceholderLine('    """..."""', 'a.py'), false)
-  for (const line of ['-- rest of the query unchanged', '/* rest of styles unchanged */', '// keep the rest as is', '// ... (unchanged)']) {
+  for (const line of [
+    '-- rest of the query unchanged',
+    '/* rest of styles unchanged */',
+    '// keep the rest as is',
+    '// ... (unchanged)',
+    '// existing code',
+    '// (existing implementation)',
+    '// your existing code goes here',
+    '// insert existing code here',
+    '// remaining functions go here',
+    '// existing code (no changes)',
+    '// insert the rest here',
+    '// other handlers go here',
+    '// existing code - no changes',
+    '// previous methods stay the same',
+    '// code elided',
+    '// keep existing code intact',
+    '// existing code (keep as-is)',
+    '// keep existing code as-is',
+    '// leave existing code intact',
+    '// existing code (keep intact)',
+    '// leave the rest as-is',
+    '// keep all existing code',
+    '// keep all the existing code',
+    '// leave all existing code intact',
+    '// existing code (unchanged from above)',
+    '// existing code - unchanged from before',
+  ]) {
     assert.equal(isPlaceholderLine(line, 'a.ts'), true, line)
+  }
+})
+
+test('targeted edits with no-ellipsis placeholder comments are detected by detectElision', () => {
+  for (const comment of [
+    '// insert existing code here',
+    '// remaining functions go here',
+    '// existing code (no changes)',
+    '// keep existing code intact',
+    '// existing code (keep as-is)',
+    '// keep existing code as-is',
+    '// leave existing code intact',
+    '// keep all existing code',
+    '// existing code (unchanged from above)',
+  ]) {
+    assert.deepEqual(
+      detectElision(comment, 'doRealWork()', false, { ...opts, extraPatterns: [], path: 'a.ts' }),
+      { kind: 'placeholder', hits: [{ line: 1, text: comment }] },
+      comment,
+    )
+  }
+})
+
+test('targeted edits with harmless cache-retention comments alongside real code are allowed', () => {
+  for (const comment of [
+    '// Cached value stays the same',
+    '// Cached value stays the same until invalidated',
+    '// cache stays unchanged until the next refresh',
+  ]) {
+    assert.equal(
+      detectElision(`${comment}\nreturn cache.get(key)`, 'return cache.get(key)', false, { ...opts, extraPatterns: [], path: 'a.ts' }),
+      undefined,
+      comment,
+    )
+  }
+})
+
+test('targeted edits with harmless non-deleting comments before an unchanged return payload are allowed', () => {
+  for (const [comment, stmt] of [
+    ['// payload is intact', 'return payload'],
+    ['// Original input is left untouched', 'return input'],
+  ]) {
+    assert.equal(
+      detectElision(`${comment}\n${stmt}`, stmt, false, { ...opts, extraPatterns: [], path: 'a.ts' }),
+      undefined,
+      comment,
+    )
   }
 })

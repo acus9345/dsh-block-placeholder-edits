@@ -105,8 +105,9 @@ export function apply(ctx: Context, config: Config): void {
     if (mutation === undefined) return next()
     const { absolute, relative } = resolvePath(mutation.path, workspaceOf(exec))
     if (cfg.ignore.length > 0 && matchesAny(relative, cfg.ignore)) return next()
+    const retryAllowed = cfg.mode === 'deny' && cfg.allowIdenticalRetry
     const key = createHash('sha256').update(`${exec.name}\0${absolute}\0${canonicalJson(exec.arguments)}`).digest('hex')
-    if (cfg.allowIdenticalRetry && pending.delete(key)) return next()
+    if (retryAllowed && pending.delete(key)) return next()
     const wholeFile = mutation.kind === 'write'
     const previous = wholeFile ? await readExisting(absolute, cfg.maxFileBytes) : mutation.oldText
     const finding = detectElision(mutation.newText, previous, wholeFile, {
@@ -116,11 +117,11 @@ export function apply(ctx: Context, config: Config): void {
       path: relative,
     })
     if (finding === undefined) return next()
-    const text = denialText(relative, finding, cfg.allowIdenticalRetry)
+    const text = denialText(relative, finding, retryAllowed)
     if (cfg.mode === 'ask') {
       return { kind: 'ask', reason: text, displayReason: { en: `Edit to ${relative} looks incomplete (${finding.kind === 'placeholder' ? 'placeholder comments' : 'large deletion'}).` } }
     }
-    if (cfg.allowIdenticalRetry) remember(key)
+    if (retryAllowed) remember(key)
     return { kind: 'deny', reason: text }
   })
 }

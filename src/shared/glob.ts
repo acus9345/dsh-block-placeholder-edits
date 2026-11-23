@@ -5,6 +5,7 @@
  */
 
 const cache = new Map<string, RegExp>()
+const NEVER = /(?!)/
 
 /**
  * Compile one glob to a regular expression.
@@ -15,6 +16,10 @@ export function globToRegExp(glob: string): RegExp {
   const cached = cache.get(glob)
   if (cached !== undefined) return cached
   let pattern = glob.trim().replace(/^\.\//, '')
+  if (pattern.length === 0) {
+    cache.set(glob, NEVER)
+    return NEVER
+  }
   if (pattern.startsWith('/')) pattern = pattern.slice(1)
   else if (!pattern.includes('/')) pattern = `**/${pattern}`
   if (pattern.endsWith('/')) pattern += '**'
@@ -53,7 +58,16 @@ export function globToRegExp(glob: string): RegExp {
     }
     i += 1
   }
-  const compiled = new RegExp(`^${re}$`)
+  let compiled: RegExp
+  if (braces > 0) {
+    compiled = NEVER
+  } else {
+    try {
+      compiled = new RegExp(`^${re}$`)
+    } catch {
+      compiled = NEVER
+    }
+  }
   cache.set(glob, compiled)
   return compiled
 }
@@ -68,9 +82,12 @@ export function matchesAny(path: string, globs: readonly string[]): boolean {
   const normalized = path.replace(/\\/g, '/').replace(/^\.\//, '')
   let matched = false
   for (const glob of globs) {
-    if (glob.startsWith('!')) {
-      if (globToRegExp(glob.slice(1)).test(normalized)) matched = false
-    } else if (globToRegExp(glob).test(normalized)) {
+    const trimmed = glob.trim()
+    if (trimmed.length === 0) continue
+    if (trimmed.startsWith('!')) {
+      const rest = trimmed.slice(1).trim()
+      if (rest.length > 0 && globToRegExp(rest).test(normalized)) matched = false
+    } else if (globToRegExp(trimmed).test(normalized)) {
       matched = true
     }
   }

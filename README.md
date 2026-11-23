@@ -35,7 +35,7 @@ git clone https://github.com/acus9345/dsh-block-placeholder-edits
 cd dsh-block-placeholder-edits
 npm install
 npm pack
-dsh plugin --profile web add ./dsh-block-placeholder-edits-0.2.0.tgz
+dsh plugin --profile web add ./dsh-block-placeholder-edits-0.2.3.tgz
 ```
 
 ## What counts as a placeholder

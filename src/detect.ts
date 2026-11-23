@@ -38,19 +38,40 @@ const COMMENT_START = /^(?:\/\/+|#+|\/\*+|\*|<!--|--|;+|%+|\{\s*\/\*|REM\b|"""|'
 const COMMENT_END = /\s*(?:\*+\/\s*\}?|-->|"""|''')\s*$/
 
 const DOTS = /(?:\.\s*){3,}|…/
+const CODE_UNITS = String.raw`(?:code|implementation|logic|methods?|functions?|imports?|content|lines|props|properties|fields|routes|handlers|tests?|cases|styles|config(?:uration)?|exports|definitions?)`
+const REST_UNITS = String.raw`(?:code|file|implementation|function|class|component|module|methods?|logic|content|body|tests?|file contents?|query|styles?|template|markup|config(?:uration)?)`
+const UNCHANGED_STATE = String.raw`(?:the same|unchanged(?: from (?:above|before|earlier|original|existing))?|as[- ]is|as (?:before|above)|intact|untouched)`
+const PLACEHOLDER_SUBJECT = String.raw`(?:(?:all (?:of )?)?(?:the |your )?(?:rest|everything else|all else)|(?:all (?:of )?)?(?:the |your )?(?:existing|previous|original|prior|other|remaining|same) (?:${CODE_UNITS}|file|class|component|module|body|template|markup|query)(?: (?:above|below|here))?|(?:the |your )?(?:${CODE_UNITS}|file|class|component|module|body|template|markup|query) (?:above|below|here)|above|below)`
 const ELISION_WORDS = new RegExp([
-  String.raw`\brest of (?:the )?(?:code|file|implementation|function|class|component|module|methods?|logic|content|body|tests?|file contents?|query|styles?|template|markup|config(?:uration)?)\b`,
-  String.raw`\b(?:remains?|stays?|is|are|kept|left) (?:the same|unchanged|as[- ]is|as before)\b`,
+  String.raw`\brest of (?:the )?${REST_UNITS}\b`,
+  String.raw`\b(?:remains?|stays?|is|are|kept|left) (?:the same|unchanged|as[- ]is|as before|intact|untouched)\b`,
   String.raw`\bunchanged\b`,
-  String.raw`\b(?:existing|previous|original|prior|other|remaining|same) (?:code|implementation|logic|methods?|functions?|imports?|content|lines|props|properties|fields|routes|handlers|tests?|cases|styles|config(?:uration)?|exports|definitions?)\b`,
+  String.raw`\b(?:existing|previous|original|prior|other|remaining|same) ${CODE_UNITS}\b`,
   String.raw`\b(?:code|content|implementation|details?|lines?) (?:omitted|elided|truncated|skipped|removed for brevity)\b`,
   String.raw`\b(?:omitted|elided|truncated) for brevity\b`,
   String.raw`\bfor brevity\b`,
   String.raw`\bsame as (?:before|above|original|existing)\b`,
-  String.raw`\bkeep (?:the )?(?:existing|original|rest)\b`,
+  String.raw`\b(?:keep|leave|preserve|retain) (?:all (?:of )?)?(?:the |your )?(?:existing|original|remaining|rest)\b`,
   String.raw`\b(?:your|the) (?:existing|original) (?:code|implementation)\b`,
   String.raw`\b(?:insert|add|put) (?:the )?(?:rest|remaining|existing)\b`,
   String.raw`\betc\.?$`,
+].join('|'), 'i')
+
+const STRONG_PHRASE = new RegExp([
+  String.raw`\brest of (?:the )?${REST_UNITS}\b`,
+  String.raw`^[(\[]?(?:${PLACEHOLDER_SUBJECT}(?:\s*[-,:–—]\s*|\s+)[(\[]?(?:(?:(?:is|are)\s+)?(?:kept|left)|remains?|stays?|is|are)|(?:remains?|stays?|kept|left))\s+${UNCHANGED_STATE}[)\]]?\W*$`,
+  String.raw`\b(?:omitted|elided|truncated)\b`,
+  String.raw`\bfor brevity\b`,
+  String.raw`\bsame as\b`,
+  String.raw`^[(\[]?(?:${PLACEHOLDER_SUBJECT}(?:\s*[-,:–—]\s*|\s+))?[(\[]?unchanged(?: from (?:above|before|earlier|original|existing))?[)\]]?\W*$`,
+  String.raw`\b(?:keep|leave|preserve|retain) (?:all (?:of )?)?(?:the |your )?(?:existing|original|remaining|rest)(?: ${CODE_UNITS})?(?: (?:${UNCHANGED_STATE}|here|below|above))?\W*$`,
+].join('|'), 'i')
+
+const PLACEHOLDER_QUALIFIER = String.raw`(?:(?:\s*[-,:–—]\s*|\s+)[(\[]?(?:(?:go(?:es)?|stays?|remains?) (?:here|below|above|${UNCHANGED_STATE})|(?:(?:is|are) )?(?:keep|leave|kept|left)(?: it| them)? ${UNCHANGED_STATE}|(?:is|are) ${UNCHANGED_STATE}|same as (?:above|before|original|existing)|here|below|above|${UNCHANGED_STATE}|no changes?|not changed|omitted|elided|truncated)[)\]]?){0,2}`
+
+const STANDALONE_PLACEHOLDER = new RegExp([
+  String.raw`^[(\[]?(?:(?:insert|add|put|paste|place|keep|leave|preserve|retain) )?(?:all (?:of )?)?(?:your |the )?(?:existing|previous|original|prior|other|remaining|same) ${CODE_UNITS}${PLACEHOLDER_QUALIFIER}[)\]]?\W*$`,
+  String.raw`^[(\[]?(?:insert|add|put|paste|place|keep|leave|preserve|retain) (?:all (?:of )?)?(?:your |the )?(?:rest|remaining|existing)${PLACEHOLDER_QUALIFIER}[)\]]?\W*$`,
 ].join('|'), 'i')
 
 /** Languages where a bare `...` line is legal code (Python Ellipsis, Go variadics are inline). */
@@ -82,9 +103,10 @@ export function isPlaceholderLine(raw: string, path: string | undefined, extra: 
   const hasWords = ELISION_WORDS.test(body)
   if (hasDots && hasWords) return true
   // Without an ellipsis, require the strong phrasings that only appear in placeholders.
-  // `unchanged` and `keep the rest` also show up in real comments ("unchanged since v1", "keep the rest sorted"),
-  // so they only count at the end of the comment.
-  if (hasWords && /\b(?:rest of (?:the )?(?:code|file|implementation|function|class|component|module|methods?|logic|content|body|tests?|query|styles?|template|markup|config)|remains?|omitted|for brevity|same as|(?:existing|previous|original|remaining) (?:code|implementation|logic|methods|functions|content))\b|\bunchanged\W*$|\bkeep (?:the )?(?:existing|original|rest)(?: (?:code|implementation|as[- ]is|unchanged|the same))?\W*$/i.test(body)) {
+  // `unchanged`, `keep the rest`, and `existing code` phrases also show up in real comments
+  // ("unchanged since v1", "keep the rest sorted", "matches the existing code in parser.ts"),
+  // so only match them in placeholder positions.
+  if (hasWords && (STRONG_PHRASE.test(body) || STANDALONE_PLACEHOLDER.test(body))) {
     return body.split(/\s+/).length <= 12
   }
   // `// ... handlers ...` style: dots wrapping a short noun phrase.
